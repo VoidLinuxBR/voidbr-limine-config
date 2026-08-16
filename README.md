@@ -1,3 +1,3 @@
-# voidbr-pkgfile
+# voidbr-limine-theme
 
-Template for VoidBR pkgmake/pkgfile packages
+VoidBR theme for Limine
