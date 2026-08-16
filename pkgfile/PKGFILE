@@ -54,6 +54,7 @@ pre_install() {
 
 post_install() {
 	log "Finalizando instalação"
+	update-limine
 }
 
 pre_upgrade() {
@@ -62,4 +63,5 @@ pre_upgrade() {
 
 post_upgrade() {
 	log "Finalizando upgrade"
+	update-limine
 }
