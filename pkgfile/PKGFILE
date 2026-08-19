@@ -1,7 +1,7 @@
 # Maintainer: Vilmar Catafesta <vcatafesta@gmail.com>
 
-pkgname=voidbr-limine-theme
-pkgdesc="VoidBR theme for Limine"
+pkgname=voidbr-limine-config
+pkgdesc="VoidBR config for Limine"
 pkgver=$(date +%Y%m%d)
 pkgrel=$(date +%H%M)
 provides=()               # "eu SOU o $pkgname pkg1, pra quem depender deles"

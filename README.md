@@ -1,3 +1,3 @@
-# voidbr-limine-theme
+# voidbr-limine-config
 
-VoidBR theme for Limine
+VoidBR config for Limine
