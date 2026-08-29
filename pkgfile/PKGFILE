@@ -54,7 +54,9 @@ pre_install() {
 
 post_install() {
 	log "Finalizando instalação"
-	update-limine
+	if [ -n "$MKISO_BUILD" ]; then
+  	update-limine
+  fi
 }
 
 pre_upgrade() {
@@ -63,5 +65,7 @@ pre_upgrade() {
 
 post_upgrade() {
 	log "Finalizando upgrade"
-	update-limine
+	if [ -n "$MKISO_BUILD" ]; then
+  	update-limine
+  fi
 }
