@@ -55,6 +55,8 @@ pre_install() {
 post_install() {
 	log "Finalizando instalação"
 	if [ -n "$MKISO_BUILD" ]; then
+    echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
+  else
   	update-limine
   fi
 }
@@ -66,6 +68,8 @@ pre_upgrade() {
 post_upgrade() {
 	log "Finalizando upgrade"
 	if [ -n "$MKISO_BUILD" ]; then
+    echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
+  else
   	update-limine
   fi
 }
