@@ -8,7 +8,7 @@
 
 # Tempo (em segundos) que o menu de boot fica visível antes de escolher
 # a entrada padrão automaticamente.
-LIMINE_TIMEOUT=10
+LIMINE_TIMEOUT=5
 
 # Saída detalhada do Limine durante o boot (yes/no).
 LIMINE_VERBOSE=no

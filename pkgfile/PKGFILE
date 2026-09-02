@@ -4,9 +4,9 @@ pkgname=voidbr-limine-config
 pkgdesc="VoidBR config for Limine"
 pkgver=$(date +%Y%m%d)
 pkgrel=$(date +%H%M)
-provides=(voidbr-limine-theme)    # "eu SOU o $pkgname pkg1, pra quem depender deles"
-replaces=(voidbr-limine-theme)    # "remove o pkg1 pkg2 antigo automaticamente quando eu instalar"
-conflicts=(voidbr-limine-theme)   # "nunca me deixe coexistir com o pkg1 pkg2 original"
+provides=(voidbr-limine-theme)  # "eu SOU o $pkgname pkg1, pra quem depender deles"
+replaces=(voidbr-limine-theme)  # "remove o pkg1 pkg2 antigo automaticamente quando eu instalar"
+conflicts=(voidbr-limine-theme) # "nunca me deixe coexistir com o pkg1 pkg2 original"
 arch=('any')
 license=('MIT')
 #url="ssh://git@github.com/voidlinuxbr/${pkgname}"
@@ -15,16 +15,16 @@ source=("git+${url}.git")
 md5sums=('SKIP')
 makedepends=()
 depends=(limine)
-backup=()
+backup=(/etc/defauolt/limine)
 
 package() {
 	# Verify default folder
-  if [ -d "${srcdir}/${pkgname}/${pkgname}" ]; then
+	if [ -d "${srcdir}/${pkgname}/${pkgname}" ]; then
 		InternalDir="${srcdir}/${pkgname}/${pkgname}"
-  elif [ -d "${srcdir}/${pkgname}" ]; then
+	elif [ -d "${srcdir}/${pkgname}" ]; then
 		InternalDir="${srcdir}/${pkgname}"
 	else
-    #local
+		#local
 		InternalDir="${WORKDIR}"
 	fi
 
@@ -54,11 +54,12 @@ pre_install() {
 
 post_install() {
 	log "Finalizando instalação"
-	if [ -n "$MKISO_BUILD" ]; then
-    echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
-  else
-  	update-limine
-  fi
+
+	if [ -n "${MKISO_BUILD:-}" ]; then
+		echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
+	else
+		update-limine
+	fi
 }
 
 pre_upgrade() {
@@ -67,9 +68,10 @@ pre_upgrade() {
 
 post_upgrade() {
 	log "Finalizando upgrade"
-	if [ -n "$MKISO_BUILD" ]; then
-    echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
-  else
-  	update-limine
-  fi
+
+	if [ -n "${MKISO_BUILD:-}" ]; then
+		echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
+	else
+		update-limine
+	fi
 }
