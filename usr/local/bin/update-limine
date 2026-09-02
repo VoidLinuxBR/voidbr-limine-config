@@ -1,0 +1,232 @@
+#!/bin/sh
+# -*- coding: utf-8 -*-
+# shellcheck shell=bash disable=SC1091,SC2039,SC2166,SC2034
+#
+#  update-limine
+#  Created: seg 14 ago 2026 15:10:20 -04
+#  Updated: ter 01 set 2026 03:27:26 -04
+#
+#  Copyright (c) 2019-2026, Vilmar Catafesta <vcatafesta@gmail.com>
+#  Copyright (c) 2019-2026, ChiliLinux Development Team <https://chililinux.com> <https://github.com/chililinux>
+#  Assembled By Vilmar Catafesta for the ChiliLinux project.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#
+#  THIS SOFTWARE IS PROVIDED BY Vilmar Catafesta ''AS IS'' AND ANY EXPRESS OR
+#  IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+#  OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+#  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+#  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+#  NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+#  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+#  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+#  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+#  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+##############################################################################
+
+# Cores ANSI (desativadas automaticamente se a saída não for um terminal)
+if [ -t 1 ]; then
+  red='\033[1;31m'
+  green='\033[1;32m'
+  yellow='\033[1;33m'
+  blue='\033[1;34m'
+  cyan='\033[1;36m'
+  bold='\033[1m'
+  reset='\033[0m'
+else
+  red=''; green=''; yellow=''; blue=''; cyan=''; bold=''; reset=''
+fi
+
+if [ "$(id -u)" -ne 0 ]; then
+    printf "${red}Erro:${reset} este script deve ser executado como root.\n" >&2
+    exit 1
+fi
+printf "${blue}==>${reset} Gerando o arquivo de configuração do limine...\n"
+
+# Configurações do usuário/instalador (opcional). Se existir, sobrepõe os
+# defaults abaixo. Formato: shell puro (VAR=valor), igual /etc/default/grub.
+LIMINE_TIMEOUT=5
+LIMINE_VERBOSE=no
+LIMINE_CMDLINE_LINUX_DEFAULT="rw loglevel=4"
+LIMINE_DISTRO_NAME="VoidBR"
+LIMINE_TERM_PALETTE="1e1e2e;f38ba8;a6e3a1;f9e2af;89b4fa;f5c2e7;94e2d5;cdd6f4"
+LIMINE_TERM_PALETTE_BRIGHT="585b70;f38ba8;a6e3a1;f9e2af;89e2b4;f5c2e7;94e2d5;cdd6f4"
+LIMINE_TERM_BACKGROUND="ffffffff"
+LIMINE_TERM_FOREGROUND="cdd6f4"
+LIMINE_TERM_BACKGROUND_BRIGHT="ffffffff"
+LIMINE_TERM_FOREGROUND_BRIGHT="cdd6f4"
+LIMINE_WALLPAPER="voidbr-tokyonight.png"
+LIMINE_WALLPAPER_STYLE="stretched"
+# shellcheck disable=SC1091
+[ -r /etc/default/limine ] && . /etc/default/limine
+
+boot=/boot
+#cfg="${boot}/limine.conf"
+#boot_limine="/"
+dest="${boot}/efi/limine"
+cfg="${dest}/limine.conf"
+boot_limine="/limine"
+root_uuid=$(findmnt -no UUID /)
+
+[ -n "$root_uuid" ] || exit 1
+set -- "$boot"/vmlinuz-*
+
+[ -e "$1" ] || exit 0
+
+mkdir -p "$dest"
+sorted_kernels=$(printf '%s\n' "$@" | sort -Vr)
+
+# --- Limpa o destino primeiro ---
+# Todo kernel/initramfs já presente em $dest ou é uma versão que também
+# existe na origem (será recopiada atualizada) ou é uma versão que não
+# existe mais na origem (obsoleta). Em ambos os casos, remove agora,
+# para que o cálculo de espaço livre abaixo reflita a realidade.
+printf "${blue}==>${reset} Limpando destino (%s)...\n" "$dest"
+for f in "$dest"/vmlinuz-* "$dest"/initramfs-*.img; do
+  [ -e "$f" ] || continue
+  # printf "${yellow}  removendo:${reset} %s\n" "$f"
+  rm -f "$f"
+done
+
+# --- Verifica espaço disponível no destino (já limpo) ---
+avail=$(df --output=avail -B1 "$dest" 2>/dev/null | tail -n1 | tr -d ' ')
+avail_known=1
+if ! printf '%s' "$avail" | grep -Eq '^[0-9]+$'; then
+  avail_known=0
+  avail=0
+fi
+
+copy_list=""
+keep_versions=""
+
+if [ "$avail_known" -eq 0 ]; then
+  # Não deu pra medir o espaço livre: por segurança, não arrisca copiar
+  # tudo às cegas nem aborta sem gerar config — copia só o mais novo.
+  printf "${yellow}Aviso:${reset} não foi possível checar o espaço disponível em %s — copiando apenas o kernel mais novo por segurança.\n" "$dest" >&2
+  newest_kernel=$(printf '%s\n' "$sorted_kernels" | head -n1)
+  newest_version=${newest_kernel##*/vmlinuz-}
+  newest_initramfs="${boot}/initramfs-${newest_version}.img"
+  if [ -f "$newest_initramfs" ]; then
+    copy_list="${newest_kernel};${newest_initramfs}
+"
+    keep_versions="${newest_version}
+"
+  fi
+else
+  # --- Preenchimento guloso: começa pelo kernel mais novo e vai incluindo
+  #     os seguintes enquanto couber no espaço livre. Assim que um não
+  #     couber, para por ali — os mais antigos ficam de fora. ---
+  printf "${blue}==>${reset} Selecionando kernels (do mais novo ao mais antigo, conforme espaço)...\n"
+  running_total=0
+  for kernel in $sorted_kernels; do
+    version=${kernel##*/vmlinuz-}
+    initramfs="${boot}/initramfs-${version}.img"
+    [ -f "$initramfs" ] || continue
+
+    ksize=$(stat -c%s "$kernel" 2>/dev/null || echo 0)
+    isize=$(stat -c%s "$initramfs" 2>/dev/null || echo 0)
+    pair_size=$((ksize + isize))
+    pair_required=$((pair_size + pair_size / 10))  # +10% de margem (overhead de FS)
+
+    if [ $((running_total + pair_required)) -le "$avail" ]; then
+      copy_list="${copy_list}${kernel};${initramfs}
+"
+      keep_versions="${keep_versions}${version}
+"
+      running_total=$((running_total + pair_size))
+    else
+      printf "${yellow}Espaço esgotado${reset} em %s — parando em '%s', kernels mais antigos ficarão de fora.\n" "$dest" "$version"
+      break
+    fi
+  done
+fi
+
+if [ -z "$copy_list" ]; then
+  printf "${red}Erro:${reset} sem espaço suficiente em %s para copiar nenhum kernel.\n" "$dest" >&2
+  exit 1
+fi
+
+printf "${cyan}Kernels selecionados:${reset}\n"
+printf '%s' "$keep_versions" | sed '/^$/d' | while read -r v; do
+  printf "  ${green}✓${reset} %s\n" "$v"
+done
+
+# --- Copia os selecionados (destino já está limpo) ---
+printf "${blue}==>${reset} Copiando arquivos...\n"
+printf '%s' "$copy_list" | while IFS=';' read -r kernel initramfs; do
+  [ -n "$kernel" ] || continue
+  # printf "${green}  copiando:${reset} %s\n" "$kernel"
+  if ! cp -a "$kernel" "$dest/"; then
+    printf "${red}Erro:${reset} falha ao copiar %s para %s\n" "$kernel" "$dest" >&2
+    exit 1
+  fi
+#  printf "${green}  copiando:${reset} %s\n" "$initramfs"
+  if ! cp -a "$initramfs" "$dest/"; then
+    printf "${red}Erro:${reset} falha ao copiar %s para %s\n" "$initramfs" "$dest" >&2
+    exit 1
+  fi
+done || exit 1
+
+if [ -f /boot/memtest.bin ]; then
+  cp -a /boot/memtest.bin "$dest"/ || true
+fi
+
+printf "${blue}==>${reset} Adicionando entradas de menu...\n"
+{
+  echo '# VoidBR Limine theme'
+  echo '# Author: Vilmar Catafesta <vcatafesta@gmail.com>'
+  echo
+  echo "TIMEOUT: ${LIMINE_TIMEOUT}"
+  echo "VERBOSE: ${LIMINE_VERBOSE}"
+  echo "term_palette: ${LIMINE_TERM_PALETTE}"
+  echo "term_palette_bright: ${LIMINE_TERM_PALETTE_BRIGHT}"
+  echo "term_background: ${LIMINE_TERM_BACKGROUND}"
+  echo "term_foreground: ${LIMINE_TERM_FOREGROUND}"
+  echo "term_background_bright: ${LIMINE_TERM_BACKGROUND_BRIGHT}"
+  echo "term_foreground_bright: ${LIMINE_TERM_FOREGROUND_BRIGHT}"
+  echo 'interface_branding:'
+  echo "wallpaper: boot():${boot_limine}/${LIMINE_WALLPAPER}"
+  echo "wallpaper_style: ${LIMINE_WALLPAPER_STYLE}"
+  echo
+
+  printf '%s' "$copy_list" | while IFS=';' read -r kernel initramfs; do
+    [ -n "$kernel" ] || continue
+    version=${kernel##*/vmlinuz-}
+    printf '/%s (Kernel %s)\n' "$LIMINE_DISTRO_NAME" "$version"
+    printf '    PROTOCOL: linux\n'
+    printf '    PATH: boot():%s/vmlinuz-%s\n' "$boot_limine" "$version"
+    printf '    MODULE_PATH: boot():%s/initramfs-%s.img\n' "$boot_limine" "$version"
+    printf '    CMDLINE: root=UUID=%s %s\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT"
+    printf '\n'
+    printf '/%s Recover Mode (Kernel %s)\n' "$LIMINE_DISTRO_NAME" "$version"
+    printf '    PROTOCOL: linux\n'
+    printf '    PATH: boot():%s/vmlinuz-%s\n' "$boot_limine" "$version"
+    printf '    MODULE_PATH: boot():%s/initramfs-%s.img\n' "$boot_limine" "$version"
+    printf '    CMDLINE: root=UUID=%s %s single\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT"
+    printf '\n'
+  done
+
+  echo '/Configurações de Firmware UEFI'
+  echo '  protocol: efi_boot_entry'
+  echo '  entry: UEFI Firmware Settings'
+  echo
+  echo '/Windows Boot Manager'
+  echo '  protocol: efi_boot_entry'
+  echo '  entry: Windows Boot Manager'
+  echo
+  echo '/Executar Memtest86+ (teste de RAM)'
+  echo '  protocol: linux'
+  echo '  path: boot():/boot/memtest.bin'
+
+} > "${cfg}.new"
+mv "${cfg}.new" "$cfg"
+
+printf "${green}${bold}✓ Concluído!${reset} configuração escrita em %s\n" "$cfg"

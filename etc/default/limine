@@ -1,0 +1,44 @@
+#
+# Configuration file for Limine (lido por update-limine)
+#
+# Este arquivo é opcional. Se não existir, ou se alguma variável não for
+# definida aqui, o update-limine usa os valores padrão definidos internamente
+# (os mesmos valores já preenchidos abaixo).
+#
+
+# Tempo (em segundos) que o menu de boot fica visível antes de escolher
+# a entrada padrão automaticamente.
+LIMINE_TIMEOUT=10
+
+# Saída detalhada do Limine durante o boot (yes/no).
+LIMINE_VERBOSE=no
+
+# Nome usado no título das entradas de menu geradas para cada kernel
+# instalado (ex: "/VoidBR (Kernel 6.6.30_1)").
+LIMINE_DISTRO_NAME="VoidBR"
+
+# Parâmetros extras adicionados à linha de comando do kernel (cmdline),
+# em toda entrada gerada (normal e recovery). O "root=UUID=..." já é
+# adicionado automaticamente pelo update-limine, não repita aqui.
+#
+# Exemplo com disco criptografado (LUKS/LVM), preenchido automaticamente
+# pelo instalador quando a criptografia é ativada:
+# LIMINE_CMDLINE_LINUX_DEFAULT="rw loglevel=4 rd.luks.allow-discards rd.lvm.vg=voidvg rd.luks.uuid=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+LIMINE_CMDLINE_LINUX_DEFAULT="rw loglevel=4"
+
+# --- Aparência do menu ---
+
+# Paletas de cor do terminal (8 cores, separadas por ";"): normal e "bright".
+LIMINE_TERM_PALETTE="1e1e2e;f38ba8;a6e3a1;f9e2af;89b4fa;f5c2e7;94e2d5;cdd6f4"
+LIMINE_TERM_PALETTE_BRIGHT="585b70;f38ba8;a6e3a1;f9e2af;89e2b4;f5c2e7;94e2d5;cdd6f4"
+
+# Cores de fundo/texto do terminal (formato hexadecimal ARGB/RGB do Limine).
+LIMINE_TERM_BACKGROUND="ffffffff"
+LIMINE_TERM_FOREGROUND="cdd6f4"
+LIMINE_TERM_BACKGROUND_BRIGHT="ffffffff"
+LIMINE_TERM_FOREGROUND_BRIGHT="cdd6f4"
+
+# Wallpaper exibido no menu (nome do arquivo, dentro de /boot/efi/limine/).
+# O caminho completo é montado automaticamente pelo update-limine.
+LIMINE_WALLPAPER="voidbr-tokyonight.png"
+LIMINE_WALLPAPER_STYLE="stretched"
