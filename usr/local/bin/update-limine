@@ -4,7 +4,7 @@
 #
 #  update-limine
 #  Created: seg 14 ago 2026 15:10:20 -04
-#  Updated: ter 01 set 2026 03:27:26 -04
+#  Updated: sáb 26 set 2026 21:30:00 -04
 #
 #  Copyright (c) 2019-2026, Vilmar Catafesta <vcatafesta@gmail.com>
 #  Copyright (c) 2019-2026, ChiliLinux Development Team <https://chililinux.com> <https://github.com/chililinux>
@@ -77,6 +77,20 @@ boot_limine="/limine"
 root_uuid=$(findmnt -no UUID /)
 
 [ -n "$root_uuid" ] || exit 1
+
+# btrfs com subvolumes: o Limine não lê btrfs, então o kernel não sabe qual
+# subvolume montar como / sem o rootflags=subvol=... (o GRUB faz isso sozinho).
+# Rodando de dentro de um snapshot (@snapshots/N/snapshot), o destino é o @.
+root_flags=""
+if [ "$(findmnt -no FSTYPE /)" = "btrfs" ]; then
+  root_fsroot=$(findmnt -no FSROOT /)
+  case "$root_fsroot" in
+    /|"")                     root_subvol="" ;;
+    /@snapshots/*/snapshot)   root_subvol="@" ;;
+    *)                        root_subvol=${root_fsroot#/} ;;
+  esac
+  [ -n "$root_subvol" ] && root_flags=" rootflags=subvol=${root_subvol}"
+fi
 set -- "$boot"/vmlinuz-*
 
 [ -e "$1" ] || exit 0
@@ -84,24 +98,22 @@ set -- "$boot"/vmlinuz-*
 mkdir -p "$dest"
 sorted_kernels=$(printf '%s\n' "$@" | sort -Vr)
 
-# --- Limpa o destino primeiro ---
-# Todo kernel/initramfs já presente em $dest ou é uma versão que também
-# existe na origem (será recopiada atualizada) ou é uma versão que não
-# existe mais na origem (obsoleta). Em ambos os casos, remove agora,
-# para que o cálculo de espaço livre abaixo reflita a realidade.
-printf "${blue}==>${reset} Limpando destino (%s)...\n" "$dest"
-for f in "$dest"/vmlinuz-* "$dest"/initramfs-*.img; do
-  [ -e "$f" ] || continue
-  # printf "${yellow}  removendo:${reset} %s\n" "$f"
-  rm -f "$f"
-done
-
-# --- Verifica espaço disponível no destino (já limpo) ---
+# --- Verifica espaço disponível no destino ---
+# Os kernels/initramfs que já estão no destino contam como espaço livre: os
+# que continuarem selecionados e forem idênticos não são recopiados, e os
+# demais saem. Os kernels de snapshots ($dest/snapshots) também contam como
+# livres: os do sistema têm prioridade, e o voidbr-snapper-manager recopia
+# os dos snapshots depois, só com o espaço que sobrar.
 avail=$(df --output=avail -B1 "$dest" 2>/dev/null | tail -n1 | tr -d ' ')
 avail_known=1
 if ! printf '%s' "$avail" | grep -Eq '^[0-9]+$'; then
   avail_known=0
   avail=0
+else
+  for f in "$dest"/vmlinuz-* "$dest"/initramfs-*.img "$dest"/snapshots/*; do
+    [ -f "$f" ] || continue
+    avail=$((avail + $(stat -c%s "$f" 2>/dev/null || echo 0)))
+  done
 fi
 
 copy_list=""
@@ -159,20 +171,28 @@ printf '%s' "$keep_versions" | sed '/^$/d' | while read -r v; do
   printf "  ${green}✓${reset} %s\n" "$v"
 done
 
-# --- Copia os selecionados (destino já está limpo) ---
+# --- Limpa o destino: sai o que não foi selecionado ---
+printf "${blue}==>${reset} Limpando destino (%s)...\n" "$dest"
+for f in "$dest"/vmlinuz-* "$dest"/initramfs-*.img; do
+  [ -e "$f" ] || continue
+  v=${f##*/}; v=${v#vmlinuz-}; v=${v#initramfs-}; v=${v%.img}
+  printf '%s' "$keep_versions" | grep -qxF "$v" || rm -f "$f"
+done
+for f in "$dest"/snapshots/*; do
+  [ -e "$f" ] && rm -f "$f"
+done
+
+# --- Copia os selecionados (só o que mudou) ---
 printf "${blue}==>${reset} Copiando arquivos...\n"
 printf '%s' "$copy_list" | while IFS=';' read -r kernel initramfs; do
   [ -n "$kernel" ] || continue
-  # printf "${green}  copiando:${reset} %s\n" "$kernel"
-  if ! cp -a "$kernel" "$dest/"; then
-    printf "${red}Erro:${reset} falha ao copiar %s para %s\n" "$kernel" "$dest" >&2
-    exit 1
-  fi
-#  printf "${green}  copiando:${reset} %s\n" "$initramfs"
-  if ! cp -a "$initramfs" "$dest/"; then
-    printf "${red}Erro:${reset} falha ao copiar %s para %s\n" "$initramfs" "$dest" >&2
-    exit 1
-  fi
+  for src in "$kernel" "$initramfs"; do
+    cmp -s "$src" "$dest/${src##*/}" && continue
+    if ! cp -a "$src" "$dest/"; then
+      printf "${red}Erro:${reset} falha ao copiar %s para %s\n" "$src" "$dest" >&2
+      exit 1
+    fi
+  done
 done || exit 1
 
 if [ -f /boot/memtest.bin ]; then
@@ -204,15 +224,21 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
     printf '    PROTOCOL: linux\n'
     printf '    PATH: boot():%s/vmlinuz-%s\n' "$boot_limine" "$version"
     printf '    MODULE_PATH: boot():%s/initramfs-%s.img\n' "$boot_limine" "$version"
-    printf '    CMDLINE: root=UUID=%s %s\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT"
+    printf '    CMDLINE: root=UUID=%s %s%s\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT" "$root_flags"
     printf '\n'
     printf '/%s Recover Mode (Kernel %s)\n' "$LIMINE_DISTRO_NAME" "$version"
     printf '    PROTOCOL: linux\n'
     printf '    PATH: boot():%s/vmlinuz-%s\n' "$boot_limine" "$version"
     printf '    MODULE_PATH: boot():%s/initramfs-%s.img\n' "$boot_limine" "$version"
-    printf '    CMDLINE: root=UUID=%s %s single\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT"
+    printf '    CMDLINE: root=UUID=%s %s%s single\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT" "$root_flags"
     printf '\n'
   done
+
+  # Submenu de snapshots (voidbr-snapper-manager). As mensagens dele vão
+  # para stderr; só as entradas vão para o limine.conf.
+  if [ -n "$root_flags" ] && command -v voidbr-snapper-manager >/dev/null 2>&1; then
+    voidbr-snapper-manager limine-entries "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT" "$boot_limine" "$dest"
+  fi
 
   echo '/Configurações de Firmware UEFI'
   echo '  protocol: efi_boot_entry'
@@ -222,9 +248,11 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
   echo '  protocol: efi_boot_entry'
   echo '  entry: Windows Boot Manager'
   echo
-  echo '/Executar Memtest86+ (teste de RAM)'
-  echo '  protocol: linux'
-  echo '  path: boot():/boot/memtest.bin'
+  if [ -f "$dest/memtest.bin" ]; then
+    echo '/Executar Memtest86+ (teste de RAM)'
+    echo '  protocol: linux'
+    echo "  path: boot():${boot_limine}/memtest.bin"
+  fi
 
 } > "${cfg}.new"
 mv "${cfg}.new" "$cfg"
