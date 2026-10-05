@@ -58,9 +58,14 @@ post_install() {
 	if [ -n "${MKISO_BUILD:-}" ]; then
 		echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
 	else
-	  if [ -z "${VOIDBR_INSTALLER:-}" ]; then
-		  /usr/local/bin/update-limine || true
-    fi
+		if [ -z "${VOIDBR_INSTALLER:-}" ]; then
+			if [ -f /usr/share/limine-bios.sys ]; then
+				mkdir -p /boot/efi/limine/ 2>/dev/null
+				cp /usr/share/limine-bios.sys /boot/efi/limine/limine-bios.sys 2>/dev/null
+			fi
+
+			/usr/local/bin/update-limine || true
+		fi
 	fi
 }
 
@@ -74,8 +79,13 @@ post_upgrade() {
 	if [ -n "${MKISO_BUILD:-}" ]; then
 		echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
 	else
-    if [ -z "${VOIDBR_INSTALLER:-}" ]; then
-		  /usr/local/bin/update-limine || true
-	  fi
+		if [ -z "${VOIDBR_INSTALLER:-}" ]; then
+			if [ -f /usr/share/limine-bios.sys ]; then
+				mkdir -p /boot/efi/limine/ 2>/dev/null
+				cp /usr/share/limine-bios.sys /boot/efi/limine/limine-bios.sys 2>/dev/null
+			fi
+
+			/usr/local/bin/update-limine || true
+		fi
 	fi
 }
