@@ -67,13 +67,37 @@ post_install() {
 		return 0
 	fi
 
+	# Binários do Limine: copiados do pacote limine (/usr/share/limine) para a
+	# ESP, assim ficam sempre na mesma versão do limine instalado.
+	# Se /boot/efi está no fstab mas não montada, não copia nada (iria pro
+	# disco raiz).
+	if findmnt -s -n /boot/efi >/dev/null 2>&1 && ! mountpoint -q /boot/efi; then
+		echo "${YELLOW}[!]${RESET} /boot/efi não está montada — binários do Limine não copiados." >&2
+	else
+		mkdir -p /boot/efi/EFI/limine /boot/efi/limine 2>/dev/null || true
+
+		if [ -f /usr/share/limine/BOOTX64.EFI ]; then
+			cp /usr/share/limine/BOOTX64.EFI /boot/efi/EFI/limine/BOOTX64.EFI ||
+				echo "${YELLOW}[!]${RESET} falha ao copiar BOOTX64.EFI para /boot/efi/EFI/limine/" >&2
+
+			# Carregador de reserva da ESP: só grava se não existir ou se já
+			# for do Limine, para não sobrescrever o de outro sistema.
+			fallback=/boot/efi/EFI/BOOT/BOOTX64.EFI
+			if [ ! -f "$fallback" ] || grep -q 'Limine' "$fallback" 2>/dev/null; then
+				mkdir -p /boot/efi/EFI/BOOT 2>/dev/null || true
+				cp /usr/share/limine/BOOTX64.EFI "$fallback" ||
+					echo "${YELLOW}[!]${RESET} falha ao copiar BOOTX64.EFI para /boot/efi/EFI/BOOT/" >&2
+			fi
+		fi
+
+		if [ -f /usr/share/limine/limine-bios.sys ]; then
+			cp /usr/share/limine/limine-bios.sys /boot/efi/limine/limine-bios.sys ||
+				echo "${YELLOW}[!]${RESET} falha ao copiar limine-bios.sys para /boot/efi/limine/" >&2
+		fi
+	fi
+
 	# Dentro do instalador o update-limine é chamado depois, pelo próprio instalador.
 	[ -n "${VOIDBR_INSTALLER:-}" ] && return 0
-
-	if [ -f /usr/share/limine/limine-bios.sys ]; then
-		mkdir -p /boot/efi/limine/ 2>/dev/null
-		cp /usr/share/limine/limine-bios.sys /boot/efi/limine/limine-bios.sys 2>/dev/null
-	fi
 
 	if ! /usr/bin/update-limine; then
 		echo "${YELLOW}[!]${RESET} update-limine falhou — confira o limine.conf antes de reiniciar." >&2

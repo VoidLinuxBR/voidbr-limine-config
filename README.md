@@ -14,8 +14,14 @@ O pacote gera o `limine.conf` automaticamente, copia kernel e initramfs para a E
 | `/etc/kernel.d/post-remove/90-limine` | Hook de kernel do Void: roda o `update-limine` ao remover kernel |
 | `/etc/xbps.d/hooks.d/95-limine-update.hook` | Hook do xbps: roda o `update-limine` após instalar/atualizar `linux*` |
 | `/boot/efi/limine/voidbr-tokyonight.png` | Wallpaper do menu |
-| `/boot/efi/EFI/BOOT/BOOTX64.EFI`, `/boot/efi/EFI/limine/BOOTX64.EFI` | Binário UEFI do Limine |
-| `/boot/efi/limine/limine-bios.sys` | Estágio BIOS do Limine |
+
+Os binários do Limine não vêm no pacote: na instalação/upgrade eles são copiados do pacote `limine` (`/usr/share/limine/`) para a ESP, sempre na versão instalada:
+
+| Origem | Destino |
+|---|---|
+| `/usr/share/limine/BOOTX64.EFI` | `/boot/efi/EFI/limine/BOOTX64.EFI` |
+| `/usr/share/limine/BOOTX64.EFI` | `/boot/efi/EFI/BOOT/BOOTX64.EFI` (só se não existir ou já for do Limine) |
+| `/usr/share/limine/limine-bios.sys` | `/boot/efi/limine/limine-bios.sys` |
 
 ## Uso
 
@@ -60,7 +66,7 @@ O arquivo está em `backup=()`: numa atualização, o xbps mantém a versão edi
 
 O pacote é gerado pelo [voidbr-pkgmake](https://github.com/voidlinuxbr/voidbr-pkgmake) a partir de `pkgfile/PKGFILE`.
 
-Na instalação e no upgrade, o `post_install` copia `/usr/share/limine/limine-bios.sys` para a ESP e roda o `update-limine`. Ele pula esse passo durante o build da ISO (`MKISO_BUILD`) e dentro do instalador (`VOIDBR_INSTALLER`).
+Na instalação e no upgrade, o `post_install` copia os binários do Limine para a ESP e roda o `update-limine`. Durante o build da ISO (`MKISO_BUILD`) ele não faz nada; dentro do instalador (`VOIDBR_INSTALLER`) copia os binários, mas deixa o `update-limine` para o instalador.
 
 ## Licença
 
