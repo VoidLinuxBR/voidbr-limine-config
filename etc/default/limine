@@ -43,3 +43,8 @@ LIMINE_TERM_FOREGROUND_BRIGHT="c0caf5"
 # O caminho completo é montado automaticamente pelo update-limine.
 LIMINE_WALLPAPER="voidbr-tokyonight.png"
 LIMINE_WALLPAPER_STYLE="stretched"
+
+# Texto exibido no topo do menu e sua cor (RRGGBB).
+# Deixe LIMINE_BRANDING="" para não mostrar nada.
+LIMINE_BRANDING="VoidBR Linux"
+LIMINE_BRANDING_COLOR="7aa2f7"

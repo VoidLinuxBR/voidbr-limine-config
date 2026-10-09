@@ -65,6 +65,8 @@ LIMINE_TERM_BACKGROUND_BRIGHT="ffffffff"
 LIMINE_TERM_FOREGROUND_BRIGHT="c0caf5"
 LIMINE_WALLPAPER="voidbr-tokyonight.png"
 LIMINE_WALLPAPER_STYLE="stretched"
+LIMINE_BRANDING="VoidBR Linux"
+LIMINE_BRANDING_COLOR="7aa2f7"
 # shellcheck disable=SC1091
 [ -r /etc/default/limine ] && . /etc/default/limine
 
@@ -86,7 +88,7 @@ if findmnt -s -n "$esp" >/dev/null 2>&1 && ! mountpoint -q "$esp"; then
   exit 1
 fi
 
-[ -n "$root_uuid" ] || exit 1
+[ -n "$root_uuid" ] || { printf "${red}Erro:${reset} UUID da raiz (/) não encontrado.\n" >&2; exit 1; }
 
 # btrfs com subvolumes: o Limine não lê btrfs, então o kernel não sabe qual
 # subvolume montar como / sem o rootflags=subvol=... (o GRUB faz isso sozinho).
@@ -101,6 +103,18 @@ if [ "$(findmnt -no FSTYPE /)" = "btrfs" ]; then
   esac
   [ -n "$root_subvol" ] && root_flags=" rootflags=subvol=${root_subvol}"
 fi
+# Modo de recuperação: mesma cmdline, sem quiet/splash/plymouth, para as
+# mensagens de boot aparecerem. set -f evita expandir curingas da cmdline.
+recovery_cmdline=""
+set -f
+for w in $LIMINE_CMDLINE_LINUX_DEFAULT; do
+  case "$w" in
+    quiet|splash|plymouth.enable=*) ;;
+    *) recovery_cmdline="${recovery_cmdline:+$recovery_cmdline }$w" ;;
+  esac
+done
+set +f
+
 set -- "$boot"/vmlinuz-*
 
 [ -e "$1" ] || exit 0
@@ -223,7 +237,10 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
   echo "term_foreground: ${LIMINE_TERM_FOREGROUND}"
   echo "term_background_bright: ${LIMINE_TERM_BACKGROUND_BRIGHT}"
   echo "term_foreground_bright: ${LIMINE_TERM_FOREGROUND_BRIGHT}"
-  echo 'interface_branding:'
+  if [ -n "$LIMINE_BRANDING" ]; then
+    echo "interface_branding: ${LIMINE_BRANDING}"
+    echo "interface_branding_colour: ${LIMINE_BRANDING_COLOR}"
+  fi
   echo "wallpaper: boot():${boot_limine}/${LIMINE_WALLPAPER}"
   echo "wallpaper_style: ${LIMINE_WALLPAPER_STYLE}"
   echo
@@ -241,7 +258,7 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
     printf '    PROTOCOL: linux\n'
     printf '    PATH: boot():%s/vmlinuz-%s\n' "$boot_limine" "$version"
     printf '    MODULE_PATH: boot():%s/initramfs-%s.img\n' "$boot_limine" "$version"
-    printf '    CMDLINE: root=UUID=%s %s%s single\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT" "$root_flags"
+    printf '    CMDLINE: root=UUID=%s %s%s single\n' "$root_uuid" "$recovery_cmdline" "$root_flags"
     printf '\n'
   done
 
@@ -254,11 +271,22 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
   echo '/Configurações de Firmware UEFI'
   echo '  protocol: efi_boot_entry'
   echo '  entry: UEFI Firmware Settings'
+  echo '  if_fw_type: UEFI'
   echo
-  echo '/Windows Boot Manager'
-  echo '  protocol: efi_boot_entry'
-  echo '  entry: Windows Boot Manager'
-  echo
+
+  # Windows só entra se estiver no firmware. Sem efibootmgr não dá pra saber,
+  # então mantém a entrada (comportamento antigo).
+  show_windows=1
+  if command -v efibootmgr >/dev/null 2>&1; then
+    efibootmgr 2>/dev/null | grep -q 'Windows Boot Manager' || show_windows=0
+  fi
+  if [ "$show_windows" -eq 1 ]; then
+    echo '/Windows Boot Manager'
+    echo '  protocol: efi_boot_entry'
+    echo '  entry: Windows Boot Manager'
+    echo '  if_fw_type: UEFI'
+    echo
+  fi
   if [ -f "$dest/memtest.bin" ]; then
     echo '/Executar Memtest86+ (teste de RAM)'
     echo '  protocol: linux'
