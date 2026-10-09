@@ -76,6 +76,16 @@ cfg="${dest}/limine.conf"
 boot_limine="/limine"
 root_uuid=$(findmnt -no UUID /)
 
+# ESP no fstab mas não montada: sem esta checagem o kernel e o limine.conf
+# seriam gravados no disco raiz, e o boot continuaria com a config antiga.
+# Em instalação só BIOS o /boot/efi não costuma estar no fstab, então segue.
+esp="${boot}/efi"
+if findmnt -s -n "$esp" >/dev/null 2>&1 && ! mountpoint -q "$esp"; then
+  printf "${red}Erro:${reset} %s está no /etc/fstab, mas não está montada.\n" "$esp" >&2
+  printf "       Monte com: mount %s\n" "$esp" >&2
+  exit 1
+fi
+
 [ -n "$root_uuid" ] || exit 1
 
 # btrfs com subvolumes: o Limine não lê btrfs, então o kernel não sabe qual
@@ -203,6 +213,7 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
 {
   echo '# VoidBR Limine theme'
   echo '# Author: Vilmar Catafesta <vcatafesta@gmail.com>'
+  echo '# Gerado por update-limine — não edite. Use /etc/default/limine.'
   echo
   echo "TIMEOUT: ${LIMINE_TIMEOUT}"
   echo "VERBOSE: ${LIMINE_VERBOSE}"
