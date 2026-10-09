@@ -11,6 +11,7 @@ O pacote gera o `limine.conf` automaticamente, copia kernel e initramfs para a E
 | `/usr/bin/update-limine` | Gera o `limine.conf` e copia kernel/initramfs para a ESP |
 | `/usr/local/bin/update-limine` | Link para `/usr/bin/update-limine` |
 | `/etc/default/limine` | Configurações do usuário (timeout, cmdline, tema) |
+| `/etc/kernel.d/post-install/90-limine` | Hook de kernel do Void: roda o `update-limine` ao instalar, atualizar ou reconfigurar kernel (`xbps-reconfigure -f linuxX.Y`), depois do dracut |
 | `/etc/kernel.d/post-remove/90-limine` | Hook de kernel do Void: roda o `update-limine` ao remover kernel |
 | `/etc/xbps.d/hooks.d/95-limine-update.hook` | Hook do xbps: roda o `update-limine` quando um pacote instala ou atualiza um `/boot/vmlinuz-*` (só kernel) |
 | `/boot/efi/limine/voidbr-tokyonight.png` | Wallpaper do menu |

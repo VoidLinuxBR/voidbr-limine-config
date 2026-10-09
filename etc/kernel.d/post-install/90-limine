@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# 90-limine
+# Kernel hook do Void Linux para o bootloader Limine (VoidBR).
+# Regenera o limine.conf via update-limine sempre que um kernel é
+# instalado, atualizado ou removido (xbps-reconfigure / vkpurge).
+#
+# Instalar em:
+#   /etc/kernel.d/post-install/90-limine
+#   /etc/kernel.d/post-remove/90-limine
+#
+# O prefixo 90- garante que rode DEPOIS do 20-dracut (initramfs pronto).
+#
+# Argumentos recebidos: $1 pkgname, $2 versão do kernel.
+# No modo bulk do voidbr-vkpurge (KERNEL_ACTION=bulk), $2 vem vazio e o
+# hook roda uma única vez ao final de todas as remoções.
+#
+# Copyright (C) 2019-2026 Vilmar Catafesta <vcatafesta@gmail.com>
+#
+
+prog="90-limine"
+PKGNAME="$1"
+VERSION="$2"
+
+# update-limine ausente: Limine não instalado (ou instalação incompleta).
+# Nunca falha aqui, para não atrapalhar sistemas que usam outro bootloader.
+if ! command -v update-limine >/dev/null 2>&1; then
+	if command -v limine >/dev/null 2>&1; then
+		echo "$prog: limine encontrado, mas update-limine não está no PATH." >&2
+		echo "$prog: atualize o limine.conf manualmente antes de reiniciar." >&2
+	fi
+	exit 0
+fi
+
+if [ -n "$VERSION" ]; then
+	echo "$prog: atualizando configuração do Limine (${PKGNAME} ${VERSION})..."
+else
+	echo "$prog: atualizando configuração do Limine..."
+fi
+
+update-limine
+rc=$?
+
+if [ "$rc" -ne 0 ]; then
+	echo "$prog: update-limine falhou (código $rc)." >&2
+	echo "$prog: verifique o limine.conf ANTES de reiniciar." >&2
+fi
+
+exit "$rc"
