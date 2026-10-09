@@ -50,6 +50,12 @@ LIMINE_WALLPAPER="voidbr-tokyonight.png"
 LIMINE_WALLPAPER_STYLE="stretched"
 
 # Texto exibido no topo do menu e sua cor (RRGGBB).
-# Deixe LIMINE_BRANDING="" para não mostrar nada.
-LIMINE_BRANDING="VoidBR Linux"
+# Vazio por padrão: a wallpaper do VoidBR já traz o logo no topo, e o texto
+# ficaria em cima dele. Com LIMINE_BRANDING="" nada é mostrado (nem o texto
+# padrão do Limine).
+LIMINE_BRANDING=""
 LIMINE_BRANDING_COLOR="7aa2f7"
+
+# Esconde a linha de ajuda das teclas no topo do menu (yes/no). As teclas
+# (E editar, S firmware, B entrada em branco) continuam funcionando.
+LIMINE_HELP_HIDDEN="yes"

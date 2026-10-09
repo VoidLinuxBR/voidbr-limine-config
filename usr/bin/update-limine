@@ -69,8 +69,9 @@ LIMINE_TERM_BACKGROUND_BRIGHT="ffffffff"
 LIMINE_TERM_FOREGROUND_BRIGHT="c0caf5"
 LIMINE_WALLPAPER="voidbr-tokyonight.png"
 LIMINE_WALLPAPER_STYLE="stretched"
-LIMINE_BRANDING="VoidBR Linux"
+LIMINE_BRANDING=""
 LIMINE_BRANDING_COLOR="7aa2f7"
+LIMINE_HELP_HIDDEN="yes"
 # shellcheck disable=SC1091
 [ -r /etc/limine.d/10_linux ] && . /etc/limine.d/10_linux
 # shellcheck disable=SC1091
@@ -253,10 +254,17 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
   echo "term_foreground: ${LIMINE_TERM_FOREGROUND}"
   echo "term_background_bright: ${LIMINE_TERM_BACKGROUND_BRIGHT}"
   echo "term_foreground_bright: ${LIMINE_TERM_FOREGROUND_BRIGHT}"
+  # interface_branding sem valor esconde o texto padrão do Limine
+  # ("Limine x.y.z (x86-64, UEFI)"), que ficaria em cima do logo da wallpaper.
   if [ -n "$LIMINE_BRANDING" ]; then
     echo "interface_branding: ${LIMINE_BRANDING}"
     echo "interface_branding_colour: ${LIMINE_BRANDING_COLOR}"
+  else
+    echo 'interface_branding:'
   fi
+  # Linha de ajuda das teclas (ARROWS/ENTER/E/S/B) no topo; as teclas
+  # continuam funcionando quando ela está escondida.
+  [ "$LIMINE_HELP_HIDDEN" = "yes" ] && echo 'interface_help_hidden: yes'
   echo "wallpaper: boot():${boot_limine}/${LIMINE_WALLPAPER}"
   echo "wallpaper_style: ${LIMINE_WALLPAPER_STYLE}"
   echo
@@ -284,7 +292,8 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
     voidbr-snapper-manager limine-entries "$root_uuid" "$cmdline" "$boot_limine" "$dest"
   fi
 
-  echo '/Configurações de Firmware UEFI'
+  # Títulos do menu: a fonte do Limine é CP437, que não tem ã/õ.
+  echo '/Ajustes do Firmware UEFI'
   echo '  protocol: efi_boot_entry'
   echo '  entry: UEFI Firmware Settings'
   echo '  if_fw_type: UEFI'

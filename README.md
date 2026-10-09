@@ -37,7 +37,7 @@ O script precisa rodar como root. Ele:
 2. aborta se `/boot/efi` estiver no `/etc/fstab` mas não estiver montada;
 3. escolhe os kernels de `/boot` do mais novo ao mais antigo, enquanto couberem na ESP;
 4. copia para `/boot/efi/limine/` só o que mudou e remove os kernels que saíram;
-5. grava `/boot/efi/limine/limine.conf` com uma entrada normal e uma de recuperação (`single`, sem `quiet`/`splash`/plymouth) por kernel, além de Memtest86+ (se houver `/boot/memtest.bin`), Configurações de Firmware UEFI e Windows Boot Manager (só em UEFI; o Windows só aparece se o `efibootmgr` o listar).
+5. grava `/boot/efi/limine/limine.conf` com uma entrada normal e uma de recuperação (`single`, sem `quiet`/`splash`/plymouth) por kernel, além de Memtest86+ (se houver `/boot/memtest.bin`), Ajustes do Firmware UEFI e Windows Boot Manager (só em UEFI; o Windows só aparece se o `efibootmgr` o listar).
 
 Em btrfs com subvolumes, o `rootflags=subvol=...` é adicionado sozinho. Se o `voidbr-snapper-manager` estiver instalado, entra também o submenu de snapshots.
 
@@ -72,8 +72,9 @@ Os dois arquivos estão em `backup=()`: numa atualização, o xbps mantém a ver
 | `LIMINE_TERM_FOREGROUND_BRIGHT` | `c0caf5` | Texto "bright" |
 | `LIMINE_WALLPAPER` | `voidbr-tokyonight.png` | Arquivo dentro de `/boot/efi/limine/` |
 | `LIMINE_WALLPAPER_STYLE` | `stretched` | `stretched`, `centered` ou `tiled` |
-| `LIMINE_BRANDING` | `VoidBR Linux` | Texto no topo do menu (vazio = não mostra) |
+| `LIMINE_BRANDING` | vazio | Texto no topo do menu (vazio = não mostra nada, nem o texto padrão do Limine; a wallpaper já traz o logo) |
 | `LIMINE_BRANDING_COLOR` | `7aa2f7` | Cor do texto do topo (`RRGGBB`) |
+| `LIMINE_HELP_HIDDEN` | `yes` | Esconde a linha de ajuda das teclas no topo (as teclas continuam funcionando) |
 
 ## Empacotamento
 
