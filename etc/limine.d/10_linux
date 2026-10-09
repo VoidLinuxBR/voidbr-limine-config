@@ -1,0 +1,9 @@
+# /etc/limine.d/10_linux
+# Parâmetros fixos do kernel no VoidBR, lidos pelo update-limine e usados em
+# todas as entradas (normal, recuperação e snapshots).
+#
+# Não coloque aqui ajustes desta máquina: use LIMINE_CMDLINE_LINUX_DEFAULT em
+# /etc/default/limine, que é somado depois destes e pode sobrescrevê-los.
+# O "root=UUID=..." é adicionado automaticamente pelo update-limine.
+
+LIMINE_CMDLINE_LINUX="rw loglevel=4 video=1920x1080 quiet splash plymouth.enable=1 libata.noacpi=1 acpi=force apm=power-off nowatchdog tsc=nowatchdog cryptomgr.notests no_timer_check rcupdate.rcu_expedited=1 intel_pstate=active amd_pstate=active cpuidle.governor=teo split_lock_detect=off clearcpuid=514 transparent_hugepage=never skew_tick=1 intremap=off nosoftlockup audit=0 nomce rd.udev.log_level=3 apparmor=1 security=apparmor vconsole.font=Uni2-Fixed16 intel_iommu=on amd_iommu=on tdx=on nvme_load=yes nouveau.modeset=1 i915.modeset=1 amdgpu.modeset=1 radeon.si_support=0 radeon.cik_support=0 amdgpu.si_support=1 amdgpu.cik_support=1 nvidia.modeset=1 nvidia_drm.modeset=1 pcie_aspm=off amdgpu.aspm=0"

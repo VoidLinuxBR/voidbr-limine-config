@@ -15,7 +15,7 @@ source=("git+${url}.git")
 md5sums=('SKIP')
 makedepends=()
 depends=(limine)
-backup=(/etc/default/limine)
+backup=(/etc/default/limine /etc/limine.d/10_linux)
 
 package() {
 	# Verify default folder

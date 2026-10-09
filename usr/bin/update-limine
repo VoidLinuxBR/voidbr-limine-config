@@ -51,11 +51,15 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 printf "${blue}==>${reset} Gerando o arquivo de configuração do limine...\n"
 
-# Configurações do usuário/instalador (opcional). Se existir, sobrepõe os
-# defaults abaixo. Formato: shell puro (VAR=valor), igual /etc/default/grub.
+# Valores padrão. Por cima deles são lidos, nesta ordem (shell puro,
+# VAR=valor, igual ao GRUB):
+#   /etc/limine.d/10_linux  - parâmetros fixos do kernel (LIMINE_CMDLINE_LINUX)
+#   /etc/default/limine     - ajustes da máquina (LIMINE_CMDLINE_LINUX_DEFAULT,
+#                             tema, timeout...)
 LIMINE_TIMEOUT=5
 LIMINE_VERBOSE=no
-LIMINE_CMDLINE_LINUX_DEFAULT="rw loglevel=4"
+LIMINE_CMDLINE_LINUX="rw loglevel=4"
+LIMINE_CMDLINE_LINUX_DEFAULT=""
 LIMINE_DISTRO_NAME="VoidBR"
 LIMINE_TERM_PALETTE="15161e;f7768e;9ece6a;e0af68;7aa2f7;bb9af7;7dcfff;a9b1d6"
 LIMINE_TERM_PALETTE_BRIGHT="414868;ff899d;9fe044;faba4a;8db0ff;c7a9ff;a4daff;c0caf5"
@@ -67,6 +71,8 @@ LIMINE_WALLPAPER="voidbr-tokyonight.png"
 LIMINE_WALLPAPER_STYLE="stretched"
 LIMINE_BRANDING="VoidBR Linux"
 LIMINE_BRANDING_COLOR="7aa2f7"
+# shellcheck disable=SC1091
+[ -r /etc/limine.d/10_linux ] && . /etc/limine.d/10_linux
 # shellcheck disable=SC1091
 [ -r /etc/default/limine ] && . /etc/default/limine
 
@@ -103,11 +109,21 @@ if [ "$(findmnt -no FSTYPE /)" = "btrfs" ]; then
   esac
   [ -n "$root_subvol" ] && root_flags=" rootflags=subvol=${root_subvol}"
 fi
+# Cmdline final: fixos (10_linux) + extras (/etc/default/limine), nessa
+# ordem, sem parâmetros idênticos repetidos (fica o primeiro). Máquinas
+# antigas ainda têm a lista inteira no /etc/default/limine; assim ela não
+# sai em dobro. Valores diferentes (loglevel=4 e loglevel=3) ficam os dois,
+# e o kernel usa o último, que é o do /etc/default/limine.
 # Modo de recuperação: mesma cmdline, sem quiet/splash/plymouth, para as
 # mensagens de boot aparecerem. set -f evita expandir curingas da cmdline.
+cmdline=""
 recovery_cmdline=""
 set -f
-for w in $LIMINE_CMDLINE_LINUX_DEFAULT; do
+for w in $LIMINE_CMDLINE_LINUX $LIMINE_CMDLINE_LINUX_DEFAULT; do
+  case " $cmdline " in
+    *" $w "*) continue ;;
+  esac
+  cmdline="${cmdline:+$cmdline }$w"
   case "$w" in
     quiet|splash|plymouth.enable=*) ;;
     *) recovery_cmdline="${recovery_cmdline:+$recovery_cmdline }$w" ;;
@@ -227,7 +243,7 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
 {
   echo '# VoidBR Limine theme'
   echo '# Author: Vilmar Catafesta <vcatafesta@gmail.com>'
-  echo '# Gerado por update-limine — não edite. Use /etc/default/limine.'
+  echo '# Gerado por update-limine — não edite. Use /etc/default/limine e /etc/limine.d/10_linux.'
   echo
   echo "TIMEOUT: ${LIMINE_TIMEOUT}"
   echo "VERBOSE: ${LIMINE_VERBOSE}"
@@ -252,7 +268,7 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
     printf '    PROTOCOL: linux\n'
     printf '    PATH: boot():%s/vmlinuz-%s\n' "$boot_limine" "$version"
     printf '    MODULE_PATH: boot():%s/initramfs-%s.img\n' "$boot_limine" "$version"
-    printf '    CMDLINE: root=UUID=%s %s%s\n' "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT" "$root_flags"
+    printf '    CMDLINE: root=UUID=%s %s%s\n' "$root_uuid" "$cmdline" "$root_flags"
     printf '\n'
     printf '/%s Recover Mode (Kernel %s)\n' "$LIMINE_DISTRO_NAME" "$version"
     printf '    PROTOCOL: linux\n'
@@ -265,7 +281,7 @@ printf "${blue}==>${reset} Adicionando entradas de menu...\n"
   # Submenu de snapshots (voidbr-snapper-manager). As mensagens dele vão
   # para stderr; só as entradas vão para o limine.conf.
   if [ -n "$root_flags" ] && command -v voidbr-snapper-manager >/dev/null 2>&1; then
-    voidbr-snapper-manager limine-entries "$root_uuid" "$LIMINE_CMDLINE_LINUX_DEFAULT" "$boot_limine" "$dest"
+    voidbr-snapper-manager limine-entries "$root_uuid" "$cmdline" "$boot_limine" "$dest"
   fi
 
   echo '/Configurações de Firmware UEFI'

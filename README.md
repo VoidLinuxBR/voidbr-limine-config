@@ -10,7 +10,8 @@ O pacote gera o `limine.conf` automaticamente, copia kernel e initramfs para a E
 |---|---|
 | `/usr/bin/update-limine` | Gera o `limine.conf` e copia kernel/initramfs para a ESP |
 | `/usr/local/bin/update-limine` | Link para `/usr/bin/update-limine` |
-| `/etc/default/limine` | Configurações do usuário (timeout, cmdline, tema) |
+| `/etc/limine.d/10_linux` | Parâmetros fixos do kernel no VoidBR (`LIMINE_CMDLINE_LINUX`) |
+| `/etc/default/limine` | Ajustes da máquina (parâmetros extras do kernel, timeout, tema) |
 | `/etc/kernel.d/post-install/90-limine` | Hook de kernel do Void: roda o `update-limine` ao instalar, atualizar ou reconfigurar kernel (`xbps-reconfigure -f linuxX.Y`), depois do dracut |
 | `/etc/kernel.d/post-remove/90-limine` | Hook de kernel do Void: roda o `update-limine` ao remover kernel |
 | `/etc/xbps.d/hooks.d/95-limine-update.hook` | Hook do xbps: roda o `update-limine` quando um pacote instala ou atualiza um `/boot/vmlinuz-*` (só kernel) |
@@ -32,7 +33,7 @@ sudo update-limine
 
 O script precisa rodar como root. Ele:
 
-1. lê `/etc/default/limine` (se existir) por cima dos valores padrão;
+1. lê `/etc/limine.d/10_linux` e depois `/etc/default/limine` (se existirem) por cima dos valores padrão;
 2. aborta se `/boot/efi` estiver no `/etc/fstab` mas não estiver montada;
 3. escolhe os kernels de `/boot` do mais novo ao mais antigo, enquanto couberem na ESP;
 4. copia para `/boot/efi/limine/` só o que mudou e remove os kernels que saíram;
@@ -42,6 +43,19 @@ Em btrfs com subvolumes, o `rootflags=subvol=...` é adicionado sozinho. Se o `v
 
 O `limine.conf` é gerado: não edite à mão, mude o `/etc/default/limine` e rode `update-limine` de novo.
 
+## Parâmetros do kernel
+
+Igual ao GRUB, a cmdline vem de dois arquivos:
+
+| Arquivo | Variável | Conteúdo |
+|---|---|---|
+| `/etc/limine.d/10_linux` | `LIMINE_CMDLINE_LINUX` | parâmetros fixos do VoidBR (padrão interno: `rw loglevel=4`) |
+| `/etc/default/limine` | `LIMINE_CMDLINE_LINUX_DEFAULT` | extras desta máquina |
+
+A cmdline final é `root=UUID=...` + fixos + extras. Parâmetros idênticos repetidos saem uma vez só. Se o mesmo parâmetro aparecer com valor diferente (ex: `loglevel=3` nos extras), o kernel usa o último, que é o dos extras. As duas variáveis valem para todas as entradas: normal, recuperação (sem `quiet`/`splash`/plymouth) e snapshots.
+
+Os dois arquivos estão em `backup=()`: numa atualização, o xbps mantém a versão editada e grava a nova ao lado como `.new-<versão>`.
+
 ## Configuração (`/etc/default/limine`)
 
 | Variável | Padrão | Descrição |
@@ -49,7 +63,7 @@ O `limine.conf` é gerado: não edite à mão, mude o `/etc/default/limine` e ro
 | `LIMINE_TIMEOUT` | `5` | Segundos até bootar a entrada padrão |
 | `LIMINE_VERBOSE` | `no` | Saída detalhada do Limine (`yes`/`no`) |
 | `LIMINE_DISTRO_NAME` | `VoidBR` | Nome usado no título das entradas |
-| `LIMINE_CMDLINE_LINUX_DEFAULT` | `rw loglevel=4` | Parâmetros do kernel (o `root=UUID=` é adicionado sozinho) |
+| `LIMINE_CMDLINE_LINUX_DEFAULT` | vazio | Parâmetros extras do kernel desta máquina (zswap, LUKS...), somados depois dos fixos |
 | `LIMINE_TERM_PALETTE` | Tokyo Night | 8 cores separadas por `;` |
 | `LIMINE_TERM_PALETTE_BRIGHT` | Tokyo Night | 8 cores "bright" separadas por `;` |
 | `LIMINE_TERM_BACKGROUND` | `ffffffff` | Fundo do terminal (`TTRRGGBB`) |
@@ -60,8 +74,6 @@ O `limine.conf` é gerado: não edite à mão, mude o `/etc/default/limine` e ro
 | `LIMINE_WALLPAPER_STYLE` | `stretched` | `stretched`, `centered` ou `tiled` |
 | `LIMINE_BRANDING` | `VoidBR Linux` | Texto no topo do menu (vazio = não mostra) |
 | `LIMINE_BRANDING_COLOR` | `7aa2f7` | Cor do texto do topo (`RRGGBB`) |
-
-O arquivo está em `backup=()`: numa atualização, o xbps mantém a versão editada e grava a nova ao lado como `.new-<versão>`.
 
 ## Empacotamento
 
