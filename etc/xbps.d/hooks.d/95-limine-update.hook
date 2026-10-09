@@ -1,8 +1,13 @@
+# Roda o update-limine só quando um pacote instala ou atualiza um kernel,
+# ou seja, quando ele traz um /boot/vmlinuz-*. Assim linux-firmware,
+# linux-headers e afins não disparam o hook, e qualquer kernel (linuxX.Y,
+# mainline ou um kernel próprio) é coberto sem listar nomes de pacote.
+# A remoção de kernel é tratada pelo /etc/kernel.d/post-remove/90-limine.
 [Trigger]
-Type      = Package
+Type      = Path
 Operation = Install
 Operation = Upgrade
-Target    = linux*
+Target    = /boot/vmlinuz-*
 
 [Action]
 Description = Copiando kernel/initramfs pro ESP (Limine)
