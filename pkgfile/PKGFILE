@@ -52,20 +52,31 @@ pre_install() {
 	log "Iniciando instalação"
 }
 
+# post_install e post_upgrade fazem a mesma coisa. A lógica fica só aqui e o
+# post_upgrade chama esta função. Não dá pra usar uma função auxiliar: o
+# pkgmake só copia pre/post_install e pre/post_upgrade para o INSTALL.
 post_install() {
-	log "Finalizando instalação"
+	if [ "${update:-}" = "yes" ]; then
+		log "Finalizando upgrade"
+	else
+		log "Finalizando instalação"
+	fi
 
 	if [ -n "${MKISO_BUILD:-}" ]; then
 		echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
-	else
-		if [ -z "${VOIDBR_INSTALLER:-}" ]; then
-			if [ -f /usr/share/limine-bios.sys ]; then
-				mkdir -p /boot/efi/limine/ 2>/dev/null
-				cp /usr/share/limine-bios.sys /boot/efi/limine/limine-bios.sys 2>/dev/null
-			fi
+		return 0
+	fi
 
-			/usr/local/bin/update-limine || true
-		fi
+	# Dentro do instalador o update-limine é chamado depois, pelo próprio instalador.
+	[ -n "${VOIDBR_INSTALLER:-}" ] && return 0
+
+	if [ -f /usr/share/limine/limine-bios.sys ]; then
+		mkdir -p /boot/efi/limine/ 2>/dev/null
+		cp /usr/share/limine/limine-bios.sys /boot/efi/limine/limine-bios.sys 2>/dev/null
+	fi
+
+	if ! /usr/bin/update-limine; then
+		echo "${YELLOW}[!]${RESET} update-limine falhou — confira o limine.conf antes de reiniciar." >&2
 	fi
 }
 
@@ -74,18 +85,5 @@ pre_upgrade() {
 }
 
 post_upgrade() {
-	log "Finalizando upgrade"
-
-	if [ -n "${MKISO_BUILD:-}" ]; then
-		echo "${YELLOW}[-]${RESET} Build de ISO detectado (MKISO_BUILD) — pulando."
-	else
-		if [ -z "${VOIDBR_INSTALLER:-}" ]; then
-			if [ -f /usr/share/limine-bios.sys ]; then
-				mkdir -p /boot/efi/limine/ 2>/dev/null
-				cp /usr/share/limine-bios.sys /boot/efi/limine/limine-bios.sys 2>/dev/null
-			fi
-
-			/usr/local/bin/update-limine || true
-		fi
-	fi
+	post_install
 }
