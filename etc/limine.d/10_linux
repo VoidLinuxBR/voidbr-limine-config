@@ -5,5 +5,140 @@
 # Não coloque aqui ajustes desta máquina: use LIMINE_CMDLINE_LINUX_DEFAULT em
 # /etc/default/limine, que é somado depois destes e pode sobrescrevê-los.
 # O "root=UUID=..." é adicionado automaticamente pelo update-limine.
+#
+# Formato: shell puro (sh). Cada bloco acrescenta parâmetros à variável, um
+# por linha. Comentários só FORA das aspas — dentro delas, um "#" viraria
+# parâmetro do kernel. Por isso a explicação de cada parâmetro fica no
+# comentário acima do bloco.
+#
+# Referências: Documentation/admin-guide/kernel-parameters.txt (kernel) e
+# dracut.cmdline(7).
 
-LIMINE_CMDLINE_LINUX="rw loglevel=4 video=1920x1080 quiet splash plymouth.enable=1 libata.noacpi=1 acpi=force apm=power-off nowatchdog tsc=nowatchdog cryptomgr.notests no_timer_check rcupdate.rcu_expedited=1 intel_pstate=active amd_pstate=active cpuidle.governor=teo split_lock_detect=off clearcpuid=514 transparent_hugepage=never skew_tick=1 intremap=off nosoftlockup audit=0 nomce rd.udev.log_level=3 apparmor=1 security=apparmor vconsole.font=Uni2-Fixed16 intel_iommu=on amd_iommu=on tdx=on nvme_load=yes nouveau.modeset=1 i915.modeset=1 amdgpu.modeset=1 radeon.si_support=0 radeon.cik_support=0 amdgpu.si_support=1 amdgpu.cik_support=1 nvidia.modeset=1 nvidia_drm.modeset=1 pcie_aspm=off amdgpu.aspm=0"
+# --- Básico
+#   rw                    monta a raiz em leitura/escrita já no boot
+#   loglevel=4            mostra no console só avisos e erros (nível 0-4)
+LIMINE_CMDLINE_LINUX="
+	rw
+	loglevel=4
+"
+
+# --- Boot gráfico (plymouth) e console
+#   quiet                 esconde as mensagens do kernel no boot
+#   splash                pede ao plymouth a tela gráfica de boot
+#   plymouth.enable=1     plymouth ligado (só o valor 0 muda algo: desliga)
+#   video=1920x1080       resolução do modo de vídeo do console (KMS)
+#   vconsole.font=...     fonte do console no initramfs (dracut; a forma
+#                         atual documentada é rd.vconsole.font)
+#   rd.udev.log_level=3   udev do initramfs só registra erros (dracut)
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	quiet
+	splash
+	plymouth.enable=1
+	video=1920x1080
+	vconsole.font=Uni2-Fixed16
+	rd.udev.log_level=3
+"
+
+# --- ACPI, energia e PCIe
+#   acpi=force            usa ACPI mesmo em BIOS antiga/lista negra
+#   libata.noacpi=1       não usa ACPI no suspend/resume de discos SATA
+#   pcie_aspm=off         o kernel não mexe no ASPM (economia de energia dos
+#                         links PCIe): fica como o firmware deixou
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	acpi=force
+	libata.noacpi=1
+	pcie_aspm=off
+"
+
+# --- CPU e desempenho
+#   intel_pstate=active   controle de frequência pelo próprio driver Intel
+#   amd_pstate=active     controle de frequência pelo próprio driver AMD (EPP)
+#   cpuidle.governor=teo  governador de ociosidade "teo" no lugar do "menu"
+#   split_lock_detect=off não penaliza programas que fazem split lock
+#                         (alguns jogos/Wine travam com a detecção ligada)
+#   clearcpuid=514        desliga a UMIP (bit 514 = 16*32+2), proteção que
+#                         bloqueia instruções privilegiadas em modo usuário;
+#                         o kernel avisa no boot e fica marcado "tainted"
+#   transparent_hugepage=never  desliga páginas grandes transparentes
+#   skew_tick=1           desencontra o tick de cada CPU (menos disputa de
+#                         lock); gasta mais energia, indicado pra HPC/tempo real
+#   rcupdate.rcu_expedited=1    RCU acelerado: menos latência, mais uso de
+#                         CPU e energia
+#   no_timer_check        pula o teste do timer do IO-APIC (útil em VM)
+#   cryptomgr.notests     pula os autotestes de criptografia no boot
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	intel_pstate=active
+	amd_pstate=active
+	cpuidle.governor=teo
+	split_lock_detect=off
+	clearcpuid=514
+	transparent_hugepage=never
+	skew_tick=1
+	rcupdate.rcu_expedited=1
+	no_timer_check
+	cryptomgr.notests
+"
+
+# --- Watchdog e verificação de erros de hardware
+#   nowatchdog            desliga os watchdogs de travamento (soft/hard lockup)
+#   tsc=nowatchdog        não vigia o relógio TSC contra outras fontes
+#   nosoftlockup          não detecta travamento de CPU (soft lockup)
+#   nomce                 desliga o Machine Check: erros de memória/CPU deixam
+#                         de ser detectados e registrados
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	nowatchdog
+	tsc=nowatchdog
+	nosoftlockup
+	nomce
+"
+
+# --- IOMMU e virtualização
+#   intel_iommu=on        liga o IOMMU da Intel (VT-d; passthrough em VM)
+#   intremap=off          desliga o remapeamento de interrupções do IOMMU
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	intel_iommu=on
+	intremap=off
+"
+
+# --- Segurança e auditoria
+#   audit=0               desliga o subsistema de auditoria do kernel
+#   apparmor=1            liga o AppArmor
+#   security=apparmor     escolhe o AppArmor como módulo de segurança
+#                         (obsoleto: o kernel recomenda lsm= no lugar)
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	audit=0
+	apparmor=1
+	security=apparmor
+"
+
+# --- Vídeo: Intel
+#   i915.modeset=1        força o modo KMS no driver i915
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	i915.modeset=1
+"
+
+# --- Vídeo: AMD
+#   amdgpu.modeset=1      força o modo KMS no driver amdgpu
+#   amdgpu.si_support=1   amdgpu assume as placas GCN 1.0 (Southern Islands)
+#   amdgpu.cik_support=1  amdgpu assume as placas GCN 1.1 (Sea Islands)
+#   radeon.si_support=0   radeon larga as GCN 1.0 (senão os dois disputam)
+#   radeon.cik_support=0  radeon larga as GCN 1.1
+#   amdgpu.aspm=0         desliga a economia de energia PCIe no amdgpu
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	amdgpu.modeset=1
+	amdgpu.si_support=1
+	amdgpu.cik_support=1
+	radeon.si_support=0
+	radeon.cik_support=0
+	amdgpu.aspm=0
+"
+
+# --- Vídeo: NVIDIA
+#   nouveau.modeset=1     força o modo KMS no driver livre nouveau
+#   nvidia.modeset=1      modo KMS no driver proprietário (módulo nvidia)
+#   nvidia_drm.modeset=1  KMS no nvidia-drm (necessário pro Wayland)
+LIMINE_CMDLINE_LINUX="$LIMINE_CMDLINE_LINUX
+	nouveau.modeset=1
+	nvidia.modeset=1
+	nvidia_drm.modeset=1
+"
